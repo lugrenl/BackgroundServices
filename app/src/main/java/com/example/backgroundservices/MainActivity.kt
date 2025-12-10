@@ -1,5 +1,6 @@
 package com.example.backgroundservices
 
+import android.app.DownloadManager
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.backgroundservices.ui.theme.BackgroundServicesTheme
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
 
@@ -52,29 +55,35 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column {
-                        Spacer(
-                            modifier = Modifier.height(30.dp)
-                        )
+                        Spacer(modifier = Modifier.height(30.dp))
                         Text(
-                            text = "Start",
+                            text = "Start Foreground Service",
                             fontSize = 20.sp,
                             modifier = Modifier.clickable { askForNotificationPermission() }
                         )
-                        Spacer(
-                            modifier = Modifier.height(30.dp)
-                        )
+                        Spacer(modifier = Modifier.height(30.dp))
                         Text(
-                            text = "Stop",
+                            text = "Stop Foreground Service",
                             fontSize = 20.sp,
                             modifier = Modifier.clickable { stopService() }
                         )
-                        Spacer(
-                            modifier = Modifier.height(30.dp)
-                        )
+                        Spacer(modifier = Modifier.height(30.dp))
                         Text(
                             text = "Download",
                             fontSize = 20.sp,
                             modifier = Modifier.clickable { download() }
+                        )
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text(
+                            text = "Start Bound Service",
+                            fontSize = 20.sp,
+                            modifier = Modifier.clickable {}
+                        )
+                        Spacer(modifier = Modifier.height(30.dp))
+                        Text(
+                            text = "Stop Bound Service",
+                            fontSize = 20.sp,
+                            modifier = Modifier.clickable {}
                         )
                     }
                 }
@@ -104,6 +113,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun download() {
+        val fileUrl = "https://cloud.telecombg.ru/s/xmnaoycZDCpZfSM/download/house.jpg"
+        val fileName = "house.jpg"
+
+        val request = DownloadManager.Request(fileUrl.toUri())
+            .setTitle(fileName)
+            .setDescription("Downloading")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+
+        val downloadManager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+        downloadManager.enqueue(request)
     }
 
     private fun startService(input: String) {

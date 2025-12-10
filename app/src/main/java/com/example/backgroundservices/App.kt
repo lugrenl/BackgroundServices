@@ -1,29 +1,41 @@
 package com.example.backgroundservices
 
-// В файле App.kt
-
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 
+
+/**
+ * Создает каналы уведомлений при самом первом запуске приложения.
+ * Это обязательный шаг для Android 8.0 и выше.
+ */
 class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        createNotificationChannels()
     }
 
-    private fun createNotificationChannel() {
-        // Создание канала для показа уведомлений требуется только для Android 8.0 (API 26) и выше
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+
+            // Канал для Foreground сервиса (постоянное уведомление)
             val serviceChannel = NotificationChannel(
                 Constants.channelID,
-                Constants.channelName, // Имя, видимое пользователю в настройках
+                "Канал фонового сервиса",
                 NotificationManager.IMPORTANCE_DEFAULT
             )
-            val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
+
+            // Канал для обычных, временных уведомлений
+            val notificationChannel = NotificationChannel(
+                Constants.notificationChannelId,
+                Constants.notificationChannelName,
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            manager.createNotificationChannel(notificationChannel)
         }
     }
 }

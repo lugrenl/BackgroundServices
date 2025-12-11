@@ -3,12 +3,15 @@ package com.example.backgroundservices
 import android.app.DownloadManager
 import android.Manifest
 import android.app.Service
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import android.os.Environment
+import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,8 +37,28 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.backgroundservices.ui.theme.BackgroundServicesTheme
 import androidx.core.net.toUri
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+
+    private var isBound = false
+    private var boundService: MyBoundService? = null
+
+    // ServiceConnection для отслеживания состояния привязки
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as MyBoundService.MyBinder
+            boundService = binder.getService()
+            isBound = true
+            Toast.makeText(this@MainActivity, "Сервис привязан", Toast.LENGTH_SHORT).show()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            isBound = false
+            boundService = null
+            Toast.makeText(this@MainActivity, "Сервис отвязан", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Это действие будет выполнено после получения разрешения
     private var onPermissionGrantedAction: (() -> Unit)? = null
@@ -59,6 +87,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    var counter by remember { mutableIntStateOf(0) }
+
+                    // Обновляем счетчик каждую секунду, если сервис привязан
+                    LaunchedEffect(isBound) {
+                        while (isBound) {
+                            delay(1000)
+                            boundService?.let {
+                                counter = it.getCounter()
+                            }
+                        }
+                    }
+
                     Column (
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
@@ -88,23 +128,60 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(30.dp))
                         // --- Bound Service ---
                         Text(
-                            text = "Start Bound Service",
+                            text = "Bind to Bound Service",
+                            // text = "Start Bound Service",
                             fontSize = 20.sp,
-                            modifier = Modifier.clickable {
-                                // Для запуска Bound Service разрешение на уведомления не требуется,
-                                // но сервис сам покажет уведомление, если у приложения есть разрешение.
-                                startService(MyBoundService::class.java)
-                            }
+                            modifier = Modifier.clickable { bindToService() }
+//                            modifier = Modifier.clickable {
+//                            // Для запуска Bound Service разрешение на уведомления не требуется,
+//                            // но сервис сам покажет уведомление, если у приложения есть разрешение.
+//                            startService(MyBoundService::class.java) }
                         )
                         Spacer(modifier = Modifier.height(30.dp))
                         Text(
-                            text = "Stop Bound Service",
+                            text = "Unbind from Bound Service",
+//                            text = "Stop Bound Service",
                             fontSize = 20.sp,
-                            modifier = Modifier.clickable { stopService(MyBoundService::class.java) }
+                            modifier = Modifier.clickable { unbindFromService() }
+//                            modifier = Modifier.clickable { stopService(MyBoundService::class.java) }
                         )
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Привязаться к сервису
+     */
+    private fun bindToService() {
+        if (!isBound) {
+            val intent = Intent(this, MyBoundService::class.java)
+            bindService(intent, connection, BIND_AUTO_CREATE)
+        } else {
+            Toast.makeText(this, "Сервис уже привязан", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Отвязаться от сервиса
+     */
+    private fun unbindFromService() {
+        if (isBound) {
+            unbindService(connection)
+            isBound = false
+            boundService = null
+        } else {
+            Toast.makeText(this, "Сервис не привязан", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Важно отвязаться при уничтожении Activity
+        if (isBound) {
+            unbindService(connection)
+            isBound = false
         }
     }
 

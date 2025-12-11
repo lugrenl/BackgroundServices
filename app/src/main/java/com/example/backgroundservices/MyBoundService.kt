@@ -23,6 +23,15 @@ class MyBoundService : Service() {
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
     private var timerJob: Job? = null
     private var counter = 0
+    private var bindCount = 0 // Счетчик привязок
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(Constants.logTag, "MyBoundService: onCreate")
+
+        // Показываем уведомление при создании сервиса
+        showNotification("Bound Service", "Сервис создан и готов к привязке.")
+    }
 
     // Вызывается при запуске через startService()
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -40,21 +49,51 @@ class MyBoundService : Service() {
 
     // Вызывается при привязке через bindService()
     override fun onBind(intent: Intent?): IBinder {
-        Log.d(Constants.logTag, "MyBoundService: onBind")
+        bindCount++
+        Log.d(Constants.logTag, "MyBoundService: onBind, активных привязок: $bindCount")
+
         if (timerJob == null) {
             startTimer()
         }
+
+        // Показываем уведомление о привязке
+        showNotification("Bound Service", "Клиент привязан к сервису. Активных привязок: $bindCount")
+
         return binder
+    }
+
+    // Вызывается при отвязке всех клиентов
+    override fun onUnbind(intent: Intent?): Boolean {
+        bindCount--
+        Log.d(Constants.logTag, "MyBoundService: onUnbind, осталось привязок: $bindCount")
+
+        if (bindCount <= 0) {
+            // Последний клиент отвязался, можно остановить сервис
+            stopTimer()
+            showNotification("Bound Service", "Все клиенты отвязаны. Сервис остановится.")
+        } else {
+            showNotification("Bound Service", "Клиент отвязан. Активных привязок: $bindCount")
+        }
+
+        return true // true означает, что можно перепривязаться позже с тем же intent
+    }
+
+    override fun onRebind(intent: Intent?) {
+        super.onRebind(intent)
+        bindCount++
+        Log.d(Constants.logTag, "MyBoundService: onRebind, активных привязок: $bindCount")
+        showNotification("Bound Service", "Клиент перепривязан. Активных привязок: $bindCount")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // При уничтожении показываем уведомление об остановке
-        showNotification("Bound Service", "Сервис остановлен.")
+        Log.d(Constants.logTag, "MyBoundService: onDestroy")
 
-        timerJob?.cancel()
+        // При уничтожении показываем уведомление об остановке
+        showNotification("Bound Service", "Сервис уничтожен.")
+
+        stopTimer()
         coroutineScope.cancel()
-        Log.d(Constants.logTag, "MyBoundService: onDestroy (timer stopped)")
     }
 
     private fun startTimer() {
@@ -66,6 +105,12 @@ class MyBoundService : Service() {
                 Log.d(Constants.logTag, "MyBoundService Timer: $counter")
             }
         }
+    }
+
+    private fun stopTimer() {
+        Log.d(Constants.logTag, "MyBoundService: Timer stopped")
+        timerJob?.cancel()
+        timerJob = null
     }
 
     // Публичный метод для клиентов, которые привязались к сервису
